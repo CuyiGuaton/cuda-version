@@ -267,6 +267,21 @@ __device__ int max_edge_index(int i, double *r, int *p){
 	return (ij == max[j]) && (ii == max[i]);
 }
 
+
+
+
+/* edge_belongs_to
+ * 
+ * Indica si arista {k,l} pertenece al triángulo i.
+ * */
+
+ __device__ int edge_belongs_to(int k, int l, int i, int *p)
+ {
+     return same_edge(k, l, p[3*i + 0], p[3*i + 1])
+                     || same_edge(k, l, p[3*i + 1], p[3*i + 2])
+                     || same_edge(k, l, p[3*i + 2], p[3*i + 0]);
+ }
+
 __global__ void label_longest_edges(int *cu_max, double *cu_r, int *cu_triangles)
 {
     int i = blockDim.x * blockIdx.x + threadIdx.x;

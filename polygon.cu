@@ -3,7 +3,7 @@
 #include <math.h>
 
 #include "consts.h"
-
+#include "triangle.cuh"
 
 
 __device__ int count_FrontierEdges(int triangle, int *cu_adj){
@@ -17,6 +17,122 @@ __device__ int count_FrontierEdges(int triangle, int *cu_adj){
     return adj_counter;
 }
 
+__device__ int count_BarrierEdges(int *poly, int length_poly){
+    int count = 0;
+    int x, y,i;
+    for (i = 0; i < length_poly; i++)
+    {
+        x = i % length_poly;
+        y = (i+2) % length_poly;
+        if (poly[x] == poly[y])
+            count++;
+    }
+    return count;
+}
+
+/*Indica si un triangulo contiene al punto endpoint*/
+__device__ int is_continuous(int i, int endpoint, int *p ){
+	int p0, p1, p2;
+	if (i != -1){
+		p0 = p[3*i + 0];
+		p1 = p[3*i + 1];
+		p2 = p[3*i + 2];
+				
+		if(endpoint == p0){
+			return  0; /* indica que está en p0*/
+		}else if (endpoint == p1){
+			return  1;  /* indica que está en p1*/
+		}else if(endpoint == p2){
+			return 2;  /* indica que está en p2*/
+		}
+	}
+	return -1;
+}
+
+/* get_adjacent_triangle
+ * 
+ * Retorna el identificador del triángulo que es adyacente al
+ * triángulo i, mediante la arista {k,l}.
+ * 
+ * Si no hay triángulo, retorna NO_ADY (aún si es porque {k,l}
+ * es de borde de triangulación).
+ * */
+
+ __device__ int get_adjacent_triangle(int i, int k, int l, int *p, int *adj)
+ {
+     int u;
+     int v;
+     int w;
+     
+     /* Comprobar que {k,l} pertenezca al triángulo i. */
+     if(!edge_belongs_to(k, l, i, p))
+     {
+         //fprintf(stderr, "** ERROR ** get_adjacent_triangle: Arista {%d,%d} no pertenece al triángulo %d.\n", k, l, i);
+         //exit(EXIT_FAILURE);
+         return -1;
+     }
+     
+     u = adj[3*i + 0];
+     v = adj[3*i + 1];
+     w = adj[3*i + 2];
+     
+     int index;
+     
+     if((u != NO_ADJ)  && (same_edge(k, l, p[3*u + 0], p[3*u + 1]) ||
+             same_edge(k, l, p[3*u + 1], p[3*u + 2]) || same_edge(k, l, p[3*u + 2], p[3*u + 0])))
+     {
+         index = u;
+     }
+     else if((v != NO_ADJ)  && (same_edge(k, l, p[3*v + 0], p[3*v + 1]) ||
+                     same_edge(k, l, p[3*v + 1], p[3*v + 2]) || same_edge(k, l, p[3*v + 2], p[3*v + 0])))
+     {
+         index = v;
+     }
+     else if((w != NO_ADJ) && (same_edge(k, l, p[3*w + 0], p[3*w + 1]) ||
+                     same_edge(k, l, p[3*w + 1], p[3*w + 2]) || same_edge(k, l, p[3*w + 2], p[3*w + 0])))
+     {
+         index = w;
+     }
+     else
+     {
+         /* Ningún triángulo apareció como adyacente a {k,l} desde el i. */
+         index = NO_ADJ;
+     }
+     
+     return index;
+ }
+
+
+/* 
+	Busca un triangulo adjacente que comparte el mismo endpoint.
+	Origen es el triangulo de donde se viene, -1 si se quiere que se pueda devolver a triangulo anterior.
+*/
+__device__ int get_adjacent_triangle_share_endpoint(int i, int origen, int endpoint, int *p, int *adj){
+	int p0 = p[3*i + 0];
+	int p1 = p[3*i + 1];
+	int p2 = p[3*i + 2];
+	
+	/* consigue los triangulos adyacentes */
+	int i0 = get_adjacent_triangle(i, p0, p1, p, adj);
+	int i1 = get_adjacent_triangle(i, p1, p2, p, adj);
+	int i2 = get_adjacent_triangle(i, p2, p0, p, adj);
+
+	/*verifica si los triangulos son continuos al endpoint */
+	int ic0 = is_continuous(i0 ,endpoint, p);
+	int ic1 = is_continuous(i1 ,endpoint, p);
+	int ic2 = is_continuous(i2 ,endpoint, p);
+	
+	//debug_print("FUNCTION i0 ic0 %d %d   || i1 ic1 %d %d || i2 ic2 %d %d  \n", i0, ic0, i1,ic1,  i2,ic2);
+	//debug_print("T %d endpoint %d | Triangles %d %d %d | ADJ  %d %d %d\n", i, endpoint, p[3*i + 0], p[3*i + 1], p[3*i + 2], adj[3*i + 0], adj[3*i + 1], adj[3*i + 2] );
+	if(ic0 != -1 &&  i0 != origen && i0 != -1){ /*Si hay contuinidad y no retrocede al origen */
+		return i0;
+	}else if(ic1 != -1 && i1 != origen  && i1 != -1){
+		return i1;
+	}else if(ic2 != -1 &&   i2 != origen  && i2 != -1){
+		return i2;
+	}
+	return -2;
+}
 
 __device__ int generate_polygon(int * poly, int * triangles, int * adj, double *r, int i) {
     int ind_poly = 0;
@@ -108,7 +224,8 @@ __device__ int generate_polygon(int * poly, int * triangles, int * adj, double *
         num_FrontierEdges = count_FrontierEdges(k, adj);
         //debug_print("FE %d | origen %d t %d | Triangles %d %d %d | ADJ  %d %d %d\n", num_FrontierEdges, origen, k, triangles[3*k + 0], triangles[3*k + 1], triangles[3*k + 2], adj[3*k + 0], adj[3*k + 1], adj[3*k + 2]);
         if(origen == -2)
-            exit(0);
+            //exit(0);
+            return -10;
         if (num_FrontierEdges == 2 && continuous != -1) {
             /* ///////////////////si tiene 2 frontier edge se agregan a poly //////////////////////////////////// */
 
