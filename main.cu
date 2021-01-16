@@ -72,8 +72,6 @@ int main(int argc, char* argv[]){
     adj =(int *)malloc(3*tnumber*sizeof(int));
     triangles = (int *)malloc(3*tnumber*sizeof(int));
 	mesh = (int *)malloc(3*tnumber*sizeof(int));
-	poly = (int *)malloc(tnumber*sizeof(int));
-	pos_poly= (int *)malloc(tnumber*sizeof(int));
 	
 	//Cuda functions
     // Initialize device pointers.
@@ -82,18 +80,14 @@ int main(int argc, char* argv[]){
 	int *cu_adj;
     int *cu_seed;
 	int *cu_max;
-	int *cu_poly;
-	int *cu_pos_poly;
 	int *cu_mesh;
 
 	// Allocate device memory.
+	cudaMalloc((void**) &cu_max, tnumber*sizeof(int));
+	cudaMalloc((void**) &cu_seed, tnumber*sizeof(int));
 	cudaMalloc((void**) &cu_r, 2*tnumber*sizeof(double));
 	cudaMalloc((void**) &cu_triangles, 3*tnumber*sizeof(int));
 	cudaMalloc((void**) &cu_adj, 3*tnumber*sizeof(int));
-	cudaMalloc((void**) &cu_seed, tnumber*sizeof(int));
-	cudaMalloc((void**) &cu_max, tnumber*sizeof(int));
-	cudaMalloc((void**) &cu_poly, tnumber*sizeof(int));
-	cudaMalloc((void**) &cu_pos_poly,tnumber*sizeof(int));
 	cudaMalloc((void**) &cu_mesh, 3*tnumber*sizeof(int));
 
 
@@ -143,37 +137,44 @@ int main(int argc, char* argv[]){
     }
 	delete Tr;
 
+	for(i = 0; i <tnumber; i++)
+		seed[i] = FALSE;
+
     // Transfer arrays a and b to device.
     cudaMemcpy(cu_r, r,                 2*tnumber*sizeof(double), cudaMemcpyHostToDevice);
 	cudaMemcpy(cu_triangles, triangles, 3*tnumber*sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(cu_adj, adj,             3*tnumber*sizeof(int), cudaMemcpyHostToDevice);
-	//cudaMemcpy(cu_seed, seed,     tnumber*sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(cu_seed, seed,    		tnumber*sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(cu_max, max,             tnumber*sizeof(int), cudaMemcpyHostToDevice);
-	//cudaMemcpy(cu_poly, poly,           tnumber*sizeof(int), cudaMemcpyHostToDevice);
-	//cudaMemcpy(cu_pos_poly, pos_poly,   tnumber*sizeof(int), cudaMemcpyHostToDevice);
-	//cudaMemcpy(cu_mesh, mesh,           3*tnumber*sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(cu_mesh, mesh,           3*tnumber*sizeof(int), cudaMemcpyHostToDevice);
 		
-	// Calculate blocksize and gridsize.
-	dim3 blockSize(tnumber, 1, 1);
-	dim3 gridSize(1, 1);
-
 	//Label phase
-
 	label_longest_edges<<<tnumber, 1>>>(cu_max, cu_r, cu_triangles);
 	cudaDeviceSynchronize();
 	label_frontier_edges<<<tnumber, 1>>>(cu_max, cu_triangles, cu_adj, cu_seed);
 	cudaDeviceSynchronize();
-	cudaMemcpy(adj, cu_adj,3*tnumber*sizeof(int), cudaMemcpyDeviceToHost);
+	
+	cudaMemcpy(seed, cu_seed,tnumber*sizeof(int), cudaMemcpyDeviceToHost);
+	int regiones = 0;
+	for (i = 0; i < tnumber; i++)
+	{	
+		if(seed[i] == TRUE){
+			seed[regiones] = i;
+			regiones++;
+		}
+	}
+	for (i = 0; i < regiones; i++)
+		std::cout<<seed[i]<<" ";
+	std::cout<<"\nregiones = "<<regiones<<std::endl;
 
-	generate_mesh<<<tnumber, 1>>>(cu_triangles, cu_adj, cu_r, cu_seed);
+	//generate_mesh<<<tnumber, 1>>>(cu_triangles, cu_adj, cu_r, cu_seed,cu_mesh);
 	
 	free(r);
 	free(triangles);
 	free(adj);
 	free(seed );
 	free(mesh);
-	free(poly);
-	free(pos_poly);
+	free(max);
     
 	return EXIT_SUCCESS;
 }

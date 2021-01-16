@@ -364,14 +364,30 @@ __device__ int generate_polygon(int * poly, int * triangles, int * adj, double *
     return ind_poly;
 }
 
-
-__global__ void generate_mesh(int *cu_triangles, int *cu_adj, double *cu_r, int *cu_seed){
+/*__device__ void save_to_mesh(int *mesh, int *poly, int *i_mesh, int length_poly, int *pos_poly, int *id_pos_poly){
+    int i;
+    for (i = 0; i < length_poly; i++){        
+        mesh[*i_mesh + i] = poly[i];
+    }
+    *i_mesh += length_poly;
+    pos_poly[*id_pos_poly] = *i_mesh;
+	*id_pos_poly = *id_pos_poly + 1;
+}
+*/
+__global__ void generate_mesh(int *cu_triangles, int *cu_adj, double *cu_r, int *cu_seed, int *cu_mesh){
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     if(cu_seed[i] == TRUE){
-        int poly[1000];
+        int poly[1000]; // CAMBIAR POR SHARE MEMORY
 
         int length_poly = generate_polygon(poly, cu_triangles, cu_adj, cu_r, i);
-        int num_BE = count_BarrierEdges(poly, length_poly);
+        //int num_BE = count_BarrierEdges(poly, length_poly);
+        __syncthreads(); 
+        int i_mesh;        
+        cu_mesh[i_mesh] = length_poly;
+        i_mesh++;
+        for(int k = i_mesh; k <length_poly; k++)
+            cu_mesh[i_mesh + i] = poly[i];
+        i_mesh = i_mesh + length_poly;
     }
     
 }

@@ -285,7 +285,9 @@ __device__ int max_edge_index(int i, double *r, int *p){
 __global__ void label_longest_edges(int *cu_max, double *cu_r, int *cu_triangles)
 {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
+    
     cu_max[i] = max_edge_index(i,cu_r, cu_triangles);
+
 }
 
 __global__ void label_frontier_edges(int *cu_max, int *cu_triangles, int *cu_adj, int *cu_seed)
