@@ -97,7 +97,9 @@ __device__ int max_edge_index(int i, double *r, int *p){
      else if(same_edge(u, v, p2, p0))
      {
          return 2;
-     }/*
+     }
+    
+     /*
      else
      {
          fprintf(stderr, "%s:%d:%s() ** ERROR ** get_edge_index: Arista {%d,%d} no pertenece al triángulo %d.\n", __FILE__,  __LINE__, __func__, u, v, i);
@@ -282,42 +284,57 @@ __device__ int max_edge_index(int i, double *r, int *p){
                      || same_edge(k, l, p[3*i + 2], p[3*i + 0]);
  }
 
-__global__ void label_longest_edges(int *cu_max, double *cu_r, int *cu_triangles)
-{
-    int i = blockDim.x * blockIdx.x + threadIdx.x;
-    
-    cu_max[i] = max_edge_index(i,cu_r, cu_triangles);
-
-}
-
-__global__ void label_frontier_edges(int *cu_max, int *cu_triangles, int *cu_adj, int *cu_seed)
-{
-    int i = blockDim.x * blockIdx.x + threadIdx.x;
-    for(int j = 0; j < 3; j++)
-    {
-        if(cu_adj[3*i +j] < 0 || is_nomax_nomax(i, cu_adj[3*i + j], cu_triangles, cu_max))
-            cu_adj[3*i + j] = NO_ADJ;
-        
-
-        if(cu_adj[3*i +j] >= 0 && is_max_max(i, cu_adj[3*i + j], cu_triangles, cu_max) && cu_seed[cu_adj[3*i + j]] == FALSE)
-            cu_seed[i] = TRUE;
-        
-    }   
-}
-
-__global__ void label_kernel(int *cu_max, int *cu_triangles, int *cu_adj, double *cu_r, int *cu_seed, int tnumber)
+__global__ void label_longest_edges(int *cu_max, double *cu_r, int *cu_triangles, int tnumber)
 {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     if(i < tnumber)
     {
         cu_max[i] = max_edge_index(i,cu_r, cu_triangles);
-        __syncthreads();
+    }
 
-        for(int j = 0; j < 3; j++)
+}
+
+__global__ void label_frontier_edges(int *cu_max, int *cu_disconnect, int *cu_triangles, int *cu_adj, int tnumber)
+{
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    if(i < tnumber)
+    {
+        cu_disconnect[3*i + 0] = (cu_adj[3*i + 0] != -1) && is_nomax_nomax(i, cu_adj[3*i + 0], cu_triangles, cu_max);
+        cu_disconnect[3*i + 1] = (cu_adj[3*i + 1] != -1) && is_nomax_nomax(i, cu_adj[3*i + 1], cu_triangles, cu_max);
+        cu_disconnect[3*i + 2] = (cu_adj[3*i + 2] != -1) && is_nomax_nomax(i, cu_adj[3*i + 2], cu_triangles, cu_max);
+    }
+}
+
+__global__ void disconnect_edges(int *cu_adj, int* cu_disconnect, int tnumber){
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    if(i < tnumber)
+    {
+        if(cu_disconnect[3*i + 0] == TRUE)
         {
-            if(cu_adj[3*i +j] < 0 || is_nomax_nomax(i, cu_adj[3*i + j], cu_triangles, cu_max))
-                cu_adj[3*i + j] = NO_ADJ;
-            
+            cu_adj[3*i + 0] = NO_ADJ;
+        }
+        
+        if(cu_disconnect[3*i + 1] == TRUE)
+        {
+            cu_adj[3*i + 1] = NO_ADJ;
+        }
+        
+        if(cu_disconnect[3*i + 2] == TRUE)
+        {
+            cu_adj[3*i + 2] = NO_ADJ;
+        }
+    }        
+}
+
+
+__global__ void get_seeds(int *cu_max, int *cu_triangles, int *cu_adj, int *cu_seed, int tnumber)
+{
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    if(i < tnumber)
+    {
+         
+         for(int j = 0; j < 3; j++)
+        {
             if(cu_adj[3*i +j] >= 0 && is_max_max(i, cu_adj[3*i + j], cu_triangles, cu_max) && cu_seed[cu_adj[3*i + j]] == FALSE)
                 cu_seed[i] = TRUE;
             

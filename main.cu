@@ -54,10 +54,8 @@ int main(int argc, char* argv[]){
 	int *adj;
     int *seed;
 	int *max;
-	
-	int *poly;
-	int *pos_poly ;
 	int *mesh;
+	int *disconnect;
 
 	int i_mesh = 0;	
 	int length_poly = 0;
@@ -66,13 +64,15 @@ int main(int argc, char* argv[]){
     tnumber = Tr->tnumber;
     pnumber = Tr->pnumber;
 
-    max = (int *)malloc(tnumber*sizeof(int));
+	max = (int *)malloc(tnumber*sizeof(int));
+	disconnect = (int *)malloc(3*tnumber*sizeof(int));
 	seed = (int *)malloc(tnumber*sizeof(int));
     r = (double *)malloc(2*tnumber*sizeof(double));
     adj =(int *)malloc(3*tnumber*sizeof(int));
     triangles = (int *)malloc(3*tnumber*sizeof(int));
 	mesh = (int *)malloc(3*tnumber*sizeof(int));
 	
+
 	//Cuda functions
     // Initialize device pointers.
     double *cu_r;
@@ -80,11 +80,13 @@ int main(int argc, char* argv[]){
 	int *cu_adj;
     int *cu_seed;
 	int *cu_max;
+	int *cu_disconnect;
 	int *cu_mesh;
 
 	// Allocate device memory.
 	cudaMalloc((void**) &cu_max, tnumber*sizeof(int));
 	cudaMalloc((void**) &cu_seed, tnumber*sizeof(int));
+	cudaMalloc((void**) &cu_disconnect, 3*tnumber*sizeof(int));
 	cudaMalloc((void**) &cu_r, 2*tnumber*sizeof(double));
 	cudaMalloc((void**) &cu_triangles, 3*tnumber*sizeof(int));
 	cudaMalloc((void**) &cu_adj, 3*tnumber*sizeof(int));
@@ -146,26 +148,38 @@ int main(int argc, char* argv[]){
 	cudaMemcpy(cu_adj, adj,             3*tnumber*sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(cu_seed, seed,    		tnumber*sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(cu_max, max,             tnumber*sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(cu_disconnect, disconnect,             3*tnumber*sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(cu_mesh, mesh,           3*tnumber*sizeof(int), cudaMemcpyHostToDevice);
 	
 	
+	//Algoritmo de testeo para ver si visitan todos los triangulos
 	test_kernel<<<tnumber, 1>>>(cu_seed, tnumber);
 	cudaMemcpy(seed, cu_seed, tnumber*sizeof(int), cudaMemcpyDeviceToHost);
-
 	for (i = 0; i < tnumber; i++){
 		if(seed[i] == TRUE)
 			return 0;
 	}
 	
-	label_kernel<<<tnumber, 1>>>(cu_max, cu_triangles, cu_adj, cu_r, cu_seed, tnumber);
-	cudaDeviceSynchronize();
 	
 	//Label phase
-	//label_longest_edges<<<tnumber, 1>>>(cu_max, cu_r, cu_triangles);
-	//cudaDeviceSynchronize();
-	//label_frontier_edges<<<tnumber, 1>>>(cu_max, cu_triangles, cu_adj, cu_seed);
-	//cudaDeviceSynchronize();
+	//__global__ void label_longest_edges(int *cu_max, double *cu_r, int *cu_triangles, int tnumber);
+	label_longest_edges<<<tnumber, 1>>>(cu_max, cu_r, cu_triangles, tnumber);
+	cudaDeviceSynchronize();
+	//__global__ void label_frontier_edges(int *cu_max, int *disconnect, int *cu_triangles, int *cu_adj, int tnumber);
+	label_frontier_edges<<<tnumber, 1>>>(cu_max, cu_disconnect, cu_triangles, cu_adj, tnumber);
+	cudaDeviceSynchronize();
+	//__global__ void disconnect_edges(int *cu_adj, int* cu_disconnect, inttnumber)
+	disconnect_edges<<<tnumber, 1>>>(cu_adj, cu_disconnect, tnumber);
+	cudaDeviceSynchronize();
+	get_seeds<<<tnumber, 1>>>(cu_max, cu_triangles, cu_adj, cu_seed, tnumber);
+	cudaDeviceSynchronize();
+
 	
+	
+	__global__ void get_seeds(int *cu_max, int *cu_triangles, int *cu_adj, int *cu_seed, int tnumber);
+	
+	__global__ void test_kernel(int *cu_seed, int tnumber);
+
 	cudaMemcpy(seed, cu_seed,tnumber*sizeof(int), cudaMemcpyDeviceToHost);
 	int regiones = 0;
 	for (i = 0; i < tnumber; i++)
