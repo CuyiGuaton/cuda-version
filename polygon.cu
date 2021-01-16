@@ -382,8 +382,9 @@ __global__ void generate_mesh(int *cu_triangles, int *cu_adj, double *cu_r, int 
         //guardar malla
         cu_mesh[i_mesh] = length_poly;
         i_mesh++;
-        for(int k = i_mesh; k <length_poly; k++)
+        for(int k = 0; k <length_poly; k++){
             cu_mesh[i_mesh + k] = poly[k];
+        }
     }
     
 }
