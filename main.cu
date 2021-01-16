@@ -138,7 +138,7 @@ int main(int argc, char* argv[]){
 	delete Tr;
 
 	for(i = 0; i <tnumber; i++)
-		seed[i] = FALSE;
+		seed[i] = TRUE;
 
     // Transfer arrays a and b to device.
     cudaMemcpy(cu_r, r,                 2*tnumber*sizeof(double), cudaMemcpyHostToDevice);
@@ -147,12 +147,24 @@ int main(int argc, char* argv[]){
 	cudaMemcpy(cu_seed, seed,    		tnumber*sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(cu_max, max,             tnumber*sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(cu_mesh, mesh,           3*tnumber*sizeof(int), cudaMemcpyHostToDevice);
-		
+	
+	
+	test_kernel<<<tnumber, 1>>>(cu_seed, tnumber);
+	cudaMemcpy(seed, cu_seed, tnumber*sizeof(int), cudaMemcpyDeviceToHost);
+
+	for (i = 0; i < tnumber; i++){
+		if(seed[i] == TRUE)
+			return 0;
+	}
+	
+	label_kernel<<<tnumber, 1>>>(cu_max, cu_triangles, cu_adj, cu_r, cu_seed, tnumber);
+	cudaDeviceSynchronize();
+	
 	//Label phase
-	label_longest_edges<<<tnumber, 1>>>(cu_max, cu_r, cu_triangles);
-	cudaDeviceSynchronize();
-	label_frontier_edges<<<tnumber, 1>>>(cu_max, cu_triangles, cu_adj, cu_seed);
-	cudaDeviceSynchronize();
+	//label_longest_edges<<<tnumber, 1>>>(cu_max, cu_r, cu_triangles);
+	//cudaDeviceSynchronize();
+	//label_frontier_edges<<<tnumber, 1>>>(cu_max, cu_triangles, cu_adj, cu_seed);
+	//cudaDeviceSynchronize();
 	
 	cudaMemcpy(seed, cu_seed,tnumber*sizeof(int), cudaMemcpyDeviceToHost);
 	int regiones = 0;

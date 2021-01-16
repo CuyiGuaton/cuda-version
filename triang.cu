@@ -305,3 +305,29 @@ __global__ void label_frontier_edges(int *cu_max, int *cu_triangles, int *cu_adj
     }   
 }
 
+__global__ void label_kernel(int *cu_max, int *cu_triangles, int *cu_adj, double *cu_r, int *cu_seed, int tnumber)
+{
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    if(i < tnumber)
+    {
+        cu_max[i] = max_edge_index(i,cu_r, cu_triangles);
+        __syncthreads();
+
+        for(int j = 0; j < 3; j++)
+        {
+            if(cu_adj[3*i +j] < 0 || is_nomax_nomax(i, cu_adj[3*i + j], cu_triangles, cu_max))
+                cu_adj[3*i + j] = NO_ADJ;
+            
+            if(cu_adj[3*i +j] >= 0 && is_max_max(i, cu_adj[3*i + j], cu_triangles, cu_max) && cu_seed[cu_adj[3*i + j]] == FALSE)
+                cu_seed[i] = TRUE;
+            
+        }   
+    }
+}
+
+
+__global__ void test_kernel(int *cu_seed, int tnumber){
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    if(i < tnumber)
+        cu_seed[i] = FALSE;  
+}

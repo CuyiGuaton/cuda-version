@@ -11,3 +11,5 @@ __device__ int edge_belongs_to(int k, int l, int i, int *p);
 
 __global__ void label_longest_edges(int *cu_max, double *cu_r, int *cu_triangles);
 __global__ void label_frontier_edges(int *cu_max, int *cu_triangles, int *cu_adj, int *cu_seed);
+__global__ void test_kernel(int *cu_seed, int tnumber);
+__global__ void label_kernel(int *cu_max, int *cu_triangles, int *cu_adj, double *cu_r, int *cu_seed, int tnumber);
