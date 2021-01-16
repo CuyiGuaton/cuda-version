@@ -4,6 +4,7 @@
 
 #include "consts.h"
 
+
 //Calcula la distancia entre los puntos |x - y|
 __device__ double dist(double x0, double y0, double x1, double y1)
 {
@@ -188,86 +189,83 @@ __device__ int max_edge_index(int i, double *r, int *p){
      return (ij != max[j]) && (ii != max[i]);
  }
 
- /* is_max_max
+/* is_max_max
  * 
  * Indica si la arista compartida entre los triángulos i y j
  * es máx-máx.
  * */
 
  __device__ int is_max_max(int i, int j, int *p, int *max)
-{
-	int p0i;
-	int p1i;
-	int p2i;
-	
-	int p0j;
-	int p1j;
-	int p2j;
-	
-	p0i = p[3*i + 0];
-	p1i = p[3*i + 1];
-	p2i = p[3*i + 2];
-	
-	p0j = p[3*j + 0];
-	p1j = p[3*j + 1];
-	p2j = p[3*j + 2];
-	
-	int ij;
-	int ii;
-	
-	if(same_edge(p0i, p1i, p0j, p1j))
-	{
-		ij = get_edge_index(p0j, p1j, j, p);
-		ii = 0;
-	}
-	else if(same_edge(p1i, p2i, p0j, p1j))
-	{
-		ij = get_edge_index(p0j, p1j, j, p);
-		ii = 1;
-	}
-	else if(same_edge(p2i, p0i, p0j, p1j))
-	{
-		ij = get_edge_index(p0j, p1j, j, p);
-		ii = 2;
-	}
-	else if(same_edge(p0i, p1i, p1j, p2j))
-	{
-		ij = get_edge_index(p1j, p2j, j, p);
-		ii = 0;
-	}
-	else if(same_edge(p1i, p2i, p1j, p2j))
-	{
-		ij = get_edge_index(p1j, p2j, j, p);
-		ii = 1;
-	}
-	else if(same_edge(p2i, p0i, p1j, p2j))
-	{
-		ij = get_edge_index(p1j, p2j, j, p);
-		ii = 2;
-	}
-	else if(same_edge(p0i, p1i, p2j, p0j))
-	{
-		ij = get_edge_index(p2j, p0j, j, p);
-		ii = 0;
-	}
-	else if(same_edge(p1i, p2i, p2j, p0j))
-	{
-		ij = get_edge_index(p2j, p0j, j, p);
-		ii = 1;
-	}
-	else if(same_edge(p2i, p0i, p2j, p0j))
-	{
-		ij = get_edge_index(p2j, p0j, j, p);
-		ii = 2;
-	}
-	else
-	{
-	//	fprintf(stderr, "** ERROR ** is_max_max: Problema insperado para triángulos %d y %d.\n", i, j);
-    //exit(EXIT_FAILURE);
-	}
-	
-	return (ij == max[j]) && (ii == max[i]);
-}
+ {
+     int p0i;
+     int p1i;
+     int p2i;
+     
+     int p0j;
+     int p1j;
+     int p2j;
+     
+     p0i = p[3*i + 0];
+     p1i = p[3*i + 1];
+     p2i = p[3*i + 2];
+     
+     p0j = p[3*j + 0];
+     p1j = p[3*j + 1];
+     p2j = p[3*j + 2];
+     
+     int ij;
+     int ii;
+     
+     if(same_edge(p0i, p1i, p0j, p1j))
+     {
+         ij = get_edge_index(p0j, p1j, j, p);
+         ii = 0;
+     }
+     else if(same_edge(p1i, p2i, p0j, p1j))
+     {
+         ij = get_edge_index(p0j, p1j, j, p);
+         ii = 1;
+     }
+     else if(same_edge(p2i, p0i, p0j, p1j))
+     {
+         ij = get_edge_index(p0j, p1j, j, p);
+         ii = 2;
+     }
+     else if(same_edge(p0i, p1i, p1j, p2j))
+     {
+         ij = get_edge_index(p1j, p2j, j, p);
+         ii = 0;
+     }
+     else if(same_edge(p1i, p2i, p1j, p2j))
+     {
+         ij = get_edge_index(p1j, p2j, j, p);
+         ii = 1;
+     }
+     else if(same_edge(p2i, p0i, p1j, p2j))
+     {
+         ij = get_edge_index(p1j, p2j, j, p);
+         ii = 2;
+     }
+     else if(same_edge(p0i, p1i, p2j, p0j))
+     {
+         ij = get_edge_index(p2j, p0j, j, p);
+         ii = 0;
+     }
+     else if(same_edge(p1i, p2i, p2j, p0j))
+     {
+         ij = get_edge_index(p2j, p0j, j, p);
+         ii = 1;
+     }
+     else if(same_edge(p2i, p0i, p2j, p0j))
+     {
+         ij = get_edge_index(p2j, p0j, j, p);
+         ii = 2;
+     }
+   
+     
+     return (ij == max[j]) && (ii == max[i]);
+ }
+ 
 
 
 
@@ -332,13 +330,12 @@ __global__ void get_seeds(int *cu_max, int *cu_triangles, int *cu_adj, int *cu_s
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     if(i < tnumber)
     {
-         
-         for(int j = 0; j < 3; j++)
-        {
-            if(cu_adj[3*i +j] >= 0 && is_max_max(i, cu_adj[3*i + j], cu_triangles, cu_max) && cu_seed[cu_adj[3*i + j]] == FALSE)
-                cu_seed[i] = TRUE;
-            
-        }   
+		for(int j = 0; j < 3; j++)
+			if(cu_adj[3*i +j] != -1 && is_max_max(i, cu_adj[3*i + j], cu_triangles, cu_max) == TRUE){
+                if(cu_adj[3*i + j] < i) //si hay dos triangulos 
+                    cu_seed[i] = TRUE;
+					break;
+			}
     }
 }
 

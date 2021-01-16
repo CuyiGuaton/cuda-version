@@ -57,9 +57,7 @@ int main(int argc, char* argv[]){
 	int *mesh;
 	int *disconnect;
 
-	int i_mesh = 0;	
-	int length_poly = 0;
-	int id_pos_poly = 0;
+	
 	
     tnumber = Tr->tnumber;
     pnumber = Tr->pnumber;
@@ -139,22 +137,28 @@ int main(int argc, char* argv[]){
     }
 	delete Tr;
 
-	for(i = 0; i <tnumber; i++)
-		seed[i] = TRUE;
+	for(i = 0; i <tnumber; i++){
+		seed[i] = FALSE;
+		disconnect[3*i+0] = FALSE;
+		disconnect[3*i+1] = FALSE;
+		disconnect[3*i+2] = FALSE;
+	}
+		
 
-    // Transfer arrays a and b to device.
-    cudaMemcpy(cu_r, r,                 2*tnumber*sizeof(double), cudaMemcpyHostToDevice);
-	cudaMemcpy(cu_triangles, triangles, 3*tnumber*sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(cu_adj, adj,             3*tnumber*sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(cu_seed, seed,    		tnumber*sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(cu_max, max,             tnumber*sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(cu_disconnect, disconnect,             3*tnumber*sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(cu_mesh, mesh,           3*tnumber*sizeof(int), cudaMemcpyHostToDevice);
+    // Transfer arrays to device.
+    cudaMemcpy(cu_r, r,                   2*tnumber*sizeof(double), cudaMemcpyHostToDevice);
+	cudaMemcpy(cu_triangles, triangles,   3*tnumber*sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(cu_adj, adj,               3*tnumber*sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(cu_seed, seed,    		  tnumber*sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(cu_max, max,               tnumber*sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(cu_disconnect, disconnect, 3*tnumber*sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(cu_mesh, mesh,             3*tnumber*sizeof(int), cudaMemcpyHostToDevice);
 	
 	
 	//Algoritmo de testeo para ver si visitan todos los triangulos
 	test_kernel<<<tnumber, 1>>>(cu_seed, tnumber);
 	cudaMemcpy(seed, cu_seed, tnumber*sizeof(int), cudaMemcpyDeviceToHost);
+	cudaDeviceSynchronize();
 	for (i = 0; i < tnumber; i++){
 		if(seed[i] == TRUE)
 			return 0;
@@ -162,39 +166,69 @@ int main(int argc, char* argv[]){
 	
 	
 	//Label phase
-	//__global__ void label_longest_edges(int *cu_max, double *cu_r, int *cu_triangles, int tnumber);
+	//Etiquetar el más largo;
 	label_longest_edges<<<tnumber, 1>>>(cu_max, cu_r, cu_triangles, tnumber);
 	cudaDeviceSynchronize();
-	//__global__ void label_frontier_edges(int *cu_max, int *disconnect, int *cu_triangles, int *cu_adj, int tnumber);
-	label_frontier_edges<<<tnumber, 1>>>(cu_max, cu_disconnect, cu_triangles, cu_adj, tnumber);
-	cudaDeviceSynchronize();
-	//__global__ void disconnect_edges(int *cu_adj, int* cu_disconnect, inttnumber)
-	disconnect_edges<<<tnumber, 1>>>(cu_adj, cu_disconnect, tnumber);
-	cudaDeviceSynchronize();
+
+	//Encontrar un triangulo semilla asociado al arco terminal
 	get_seeds<<<tnumber, 1>>>(cu_max, cu_triangles, cu_adj, cu_seed, tnumber);
 	cudaDeviceSynchronize();
 
+	//Etiquetar label frontier-edges
+	label_frontier_edges<<<tnumber, 1>>>(cu_max, cu_disconnect, cu_triangles, cu_adj, tnumber);
+	cudaDeviceSynchronize();
 	
-	
-	__global__ void get_seeds(int *cu_max, int *cu_triangles, int *cu_adj, int *cu_seed, int tnumber);
-	
-	__global__ void test_kernel(int *cu_seed, int tnumber);
+	//Desconectar frontier-edges
+	disconnect_edges<<<tnumber, 1>>>(cu_adj, cu_disconnect, tnumber);
+	cudaDeviceSynchronize();
 
+
+	//cudaMemcpy(adj, cu_adj,3*tnumber*sizeof(int), cudaMemcpyDeviceToHost);
+	//for (i = 0; i < tnumber; i++)
+	//	std::cout<<adj[3*i+0]<<" "<<adj[3*i+1]<<" "<<adj[3*i+2]<<"\n";
+
+	//Se ordenan las semillas
 	cudaMemcpy(seed, cu_seed,tnumber*sizeof(int), cudaMemcpyDeviceToHost);
-	int regiones = 0;
+	int num_region = 0;
 	for (i = 0; i < tnumber; i++)
 	{	
 		if(seed[i] == TRUE){
-			seed[regiones] = i;
-			regiones++;
+			seed[num_region] = i;
+			num_region++;
 		}
 	}
-	for (i = 0; i < regiones; i++)
+	for (i = 0; i < num_region; i++)
 		std::cout<<seed[i]<<" ";
-	std::cout<<"\nregiones = "<<regiones<<std::endl;
+	std::cout<<"\nregiones = "<<num_region<<std::endl;
 
-	//generate_mesh<<<tnumber, 1>>>(cu_triangles, cu_adj, cu_r, cu_seed,cu_mesh);
+	//se consigue el indice de la malla i_mesh
+	int i_mesh = 0;
+	int *cu_i_mesh;
+	cudaMalloc((void**) &cu_i_mesh, sizeof(int));
+	cudaMemcpy(cu_i_mesh, &i_mesh, 1*sizeof(int), cudaMemcpyHostToDevice);
 	
+	generate_mesh<<<num_region, 1>>>(cu_triangles, cu_adj, cu_r, cu_seed, cu_mesh, num_region, cu_i_mesh);
+	cudaMemcpy(&i_mesh, cu_i_mesh,sizeof(int), cudaMemcpyDeviceToHost);
+	std::cout<<"\ni_mesh = "<<i_mesh<<std::endl;
+
+	cudaMemcpy(mesh, cu_mesh,3*tnumber*sizeof(int), cudaMemcpyDeviceToHost);
+	//std::cout<<"mesh[i] = ";
+	//for (i = 0; i < num_region; i++)
+	//	std::cout<<mesh[i]<<" ";
+	//std::cout<<"\n";
+
+	i = 0;
+	while(i < i_mesh){
+		int length_poly = mesh[i];
+		i++;
+		std::cout<<length_poly<<": ";
+		for(j=0; j < length_poly;j++){
+			std::cout<<mesh[i] <<" ";
+			i++;
+		}
+		std::cout<<"\n";
+	}
+
 	free(r);
 	free(triangles);
 	free(adj);
