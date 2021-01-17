@@ -216,6 +216,7 @@ int main(int argc, char* argv[]){
 	//for (i = 0; i < num_region; i++)
 	//	std::cout<<mesh[i]<<" ";
 	//std::cout<<"\n";
+	//return 0;
 
 	i = 0;
 	while(i < i_mesh){

@@ -151,10 +151,10 @@ __device__ int generate_polygon(int * poly, int * triangles, int * adj, double *
 	int origen;
 
     int num_FrontierEdges = count_FrontierEdges(i, adj);
-    //debug_print("Generando polinomio con triangulo %d FE %d\n", i, num_FrontierEdges);
+    
     /*si tiene 3 se agregan y se corta el ciclo*/
     if (num_FrontierEdges == 3) {
-        //debug_print("T %d Tiene 3 Frontier edge, se guardan así\n", i);
+    
         poly[ind_poly] = triangles[3 * i + 0];
         ind_poly++;
         poly[ind_poly] = triangles[3 * i + 1];
@@ -165,7 +165,7 @@ __device__ int generate_polygon(int * poly, int * triangles, int * adj, double *
         //visited[i] = TRUE;
         return ind_poly;
     } else if(num_FrontierEdges == 2) {
-        //debug_print("T %d Tiene 2 Frontier edge, es oreja, se usa como semilla para generar el poly\n", i);
+    
         /*si tiene dos FE se agregan y se empieza el ciclo*/
         for(j = 0; j<3; j++){
             ind0 = 3*i + j;
@@ -182,7 +182,7 @@ __device__ int generate_polygon(int * poly, int * triangles, int * adj, double *
             }
         }
     }else if (num_FrontierEdges == 1){
-        //debug_print("T %d Tiene 1 Frontier edge,se usa como FE initial\n", i);
+    
         /*si tiene dos FE se agregan y se empieza el ciclo*/
         for(j = 0; j<3; j++){
             if(adj[3*i + j] == NO_ADJ){
@@ -207,10 +207,8 @@ __device__ int generate_polygon(int * poly, int * triangles, int * adj, double *
     k = get_adjacent_triangle_share_endpoint(k, k, end_point, triangles, adj); /* cambia el indice */
     continuous = is_continuous(k, end_point, triangles);
     origen = aux;
-//        //debug_print("k %d origen %d, conti %d\n", k, origen, continuous);
-    //debug_print("T_inicial %d | Triangles %d %d %d | ADJ  %d %d %d\n", i, triangles[3*i + 0], triangles[3*i + 1], triangles[3*i + 2], adj[3*i + 0], adj[3*i + 1], adj[3*i + 2]);
-    //debug_print("initial_point %d endpoint %d | T_sig %d\n", initial_point, end_point, k);
-
+//        debug_print("k %d origen %d, conti %d\n", k, origen, continuous);
+    
     int triangugulo_initial = i;
     while (initial_point != end_point || triangugulo_initial != k) {
 
@@ -222,10 +220,7 @@ __device__ int generate_polygon(int * poly, int * triangles, int * adj, double *
         t2 = adj[3 * k + 2];
 
         num_FrontierEdges = count_FrontierEdges(k, adj);
-        //debug_print("FE %d | origen %d t %d | Triangles %d %d %d | ADJ  %d %d %d\n", num_FrontierEdges, origen, k, triangles[3*k + 0], triangles[3*k + 1], triangles[3*k + 2], adj[3*k + 0], adj[3*k + 1], adj[3*k + 2]);
-        if(origen == -2)
-            //exit(0);
-            return -10;
+        
         if (num_FrontierEdges == 2 && continuous != -1) {
             /* ///////////////////si tiene 2 frontier edge se agregan a poly //////////////////////////////////// */
 
@@ -285,10 +280,7 @@ __device__ int generate_polygon(int * poly, int * triangles, int * adj, double *
                     end_point = triangles[3 * k + 2];
 
                 }
-            } else {
-                //fprintf(stderr, "** ERROR ** Adding 2 fronter edges\n");
-                //fprintf(stderr, "** ERROR ** k %d t %d %d %d ini %d end %d \n", k, t0, t1, t2, initial_point, end_point);
-            }
+            } 
 
             aux = k;
             k = get_adjacent_triangle_share_endpoint(k, -1, end_point, triangles, adj); /* se le permite volver al triangulo anterior */
@@ -342,10 +334,7 @@ __device__ int generate_polygon(int * poly, int * triangles, int * adj, double *
                     end_point = triangles[3 * k + 2];
 
                 }
-            } else {
-                //fprintf(stderr, "** ERROR ** Adding 1 fronter edges\n");
-                //fprintf(stderr, "** ERROR ** k %d t %d %d %d ini %d end %d conti %d\n", k, t0, t1, t2, initial_point, end_point, continuous);
-            }
+            } 
             /*si es continuo y tiene 1 fe no puede volver, ind si se guarda  o no*/
             aux = k;
             k = get_adjacent_triangle_share_endpoint(k, origen, end_point, triangles, adj); /* cambia el indice */
@@ -372,14 +361,12 @@ __global__ void generate_mesh(int *cu_triangles, int *cu_adj, double *cu_r, int 
         int poly[100]; // CAMBIAR POR SHARE MEMORY
         
         int length_poly = generate_polygon(poly, cu_triangles, cu_adj, cu_r, i);
-        //int num_BE = count_BarrierEdges(poly, length_poly);
-        
         __syncthreads(); 
-        i_mesh = atomicAdd(range, length_poly+1);
+        //cu_mesh[i] = length_poly;
 
-        //cu_mesh[i] = i_mesh;
+        i_mesh = atomicAdd(range, length_poly+1);
         
-        //guardar malla
+        ////guardar malla
         cu_mesh[i_mesh] = length_poly;
         i_mesh++;
         for(int k = 0; k <length_poly; k++){
