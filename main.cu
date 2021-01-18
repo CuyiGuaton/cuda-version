@@ -154,6 +154,12 @@ int main(int argc, char* argv[]){
 	cudaMemcpy(cu_disconnect, disconnect, 3*tnumber*sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(cu_mesh, mesh,             3*tnumber*sizeof(int), cudaMemcpyHostToDevice);
 	
+	//se consigue el indice de la malla i_mesh
+	int i_mesh = 0;
+	int *cu_i_mesh;
+	cudaMalloc((void**) &cu_i_mesh, sizeof(int));
+	cudaMemcpy(cu_i_mesh, &i_mesh, 1*sizeof(int), cudaMemcpyHostToDevice);
+	
 	
 	//Algoritmo de testeo para ver si visitan todos los triangulos
 	test_kernel<<<tnumber, 1>>>(cu_seed, tnumber);
@@ -188,30 +194,32 @@ int main(int argc, char* argv[]){
 	//	std::cout<<adj[3*i+0]<<" "<<adj[3*i+1]<<" "<<adj[3*i+2]<<"\n";
 
 	//Se ordenan las semillas
+	//cudaMemcpy(seed, cu_seed,tnumber*sizeof(int), cudaMemcpyDeviceToHost);
+	//int num_region = 0;
+	//for (i = 0; i < tnumber; i++)
+	//{	
+	//	if(seed[i] == TRUE){
+	//		seed[num_region] = i;
+	//		num_region++;
+	//	}
+	//}
+	//for (i = 0; i < num_region; i++)
+	//	std::cout<<seed[i]<<" ";
+	//std::cout<<"\nregiones = "<<num_region<<std::endl;
+
+	generate_mesh<<<tnumber, 1>>>(cu_triangles, cu_adj, cu_r, cu_seed, cu_mesh, tnumber, cu_i_mesh);
+	cudaMemcpy(&i_mesh, cu_i_mesh,sizeof(int), cudaMemcpyDeviceToHost);
+	std::cout<<"\ni_mesh = "<<i_mesh<<std::endl;
+
+	cudaMemcpy(mesh, cu_mesh,3*tnumber*sizeof(int), cudaMemcpyDeviceToHost);
 	cudaMemcpy(seed, cu_seed,tnumber*sizeof(int), cudaMemcpyDeviceToHost);
 	int num_region = 0;
 	for (i = 0; i < tnumber; i++)
 	{	
 		if(seed[i] == TRUE){
-			seed[num_region] = i;
 			num_region++;
 		}
 	}
-	for (i = 0; i < num_region; i++)
-		std::cout<<seed[i]<<" ";
-	std::cout<<"\nregiones = "<<num_region<<std::endl;
-
-	//se consigue el indice de la malla i_mesh
-	int i_mesh = 0;
-	int *cu_i_mesh;
-	cudaMalloc((void**) &cu_i_mesh, sizeof(int));
-	cudaMemcpy(cu_i_mesh, &i_mesh, 1*sizeof(int), cudaMemcpyHostToDevice);
-	
-	generate_mesh<<<num_region, 1>>>(cu_triangles, cu_adj, cu_r, cu_seed, cu_mesh, num_region, cu_i_mesh);
-	cudaMemcpy(&i_mesh, cu_i_mesh,sizeof(int), cudaMemcpyDeviceToHost);
-	std::cout<<"\ni_mesh = "<<i_mesh<<std::endl;
-
-	cudaMemcpy(mesh, cu_mesh,3*tnumber*sizeof(int), cudaMemcpyDeviceToHost);
 	//std::cout<<"mesh[i] = ";
 	//for (i = 0; i < num_region; i++)
 	//	std::cout<<mesh[i]<<" ";
