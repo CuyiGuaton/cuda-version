@@ -157,30 +157,34 @@ int main(int argc, char* argv[]){
 	
 	//https://stackoverflow.com/questions/47822784/calculating-grid-and-block-dimensions-of-a-kernel
 	int numThreads = 512;  // max register per block is 65536, 65536/512
-	int numBlocks  = (int)tnumber/numThreads;
+	//int numBlocks  = (int)tnumber/numThreads;
+	int numBlocks  = (tnumber + (numThreads-1))/numThreads;
 
-	
+
 	//Inicializar seeds y disconnect
-	initialize_memory<<<tnumber, 1>>>(cu_seed, cu_disconnect, tnumber);
+	initialize_memory<<<numBlocks, numThreads>>>(cu_seed, cu_disconnect, tnumber);
 	cudaDeviceSynchronize();
+
+	auto t1 = std::chrono::high_resolution_clock::now();
+	auto tb_label =std::chrono::high_resolution_clock::now();	
 
 	//Label phase
 	//Etiquetar el más largo;
-	label_longest_edges<<<tnumber, 1>>>(cu_max, cu_r, cu_triangles, tnumber);
+	label_longest_edges<<<numBlocks, numThreads>>>(cu_max, cu_r, cu_triangles, tnumber);
 	cudaDeviceSynchronize();
 
 	//Encontrar un triangulo semilla asociado al arco terminal
-	get_seeds<<<tnumber, 1>>>(cu_max, cu_triangles, cu_adj, cu_seed, tnumber);
+	get_seeds<<<numBlocks, numThreads>>>(cu_max, cu_triangles, cu_adj, cu_seed, tnumber);
 	cudaDeviceSynchronize();
 
 	//Etiquetar label frontier-edges
-	label_frontier_edges<<<tnumber, 1>>>(cu_max, cu_disconnect, cu_triangles, cu_adj, tnumber);
+	label_frontier_edges<<<numBlocks, numThreads>>>(cu_max, cu_disconnect, cu_triangles, cu_adj, tnumber);
 	cudaDeviceSynchronize();
 	
 	//Desconectar frontier-edges
-	disconnect_edges<<<tnumber, 1>>>(cu_adj, cu_disconnect, tnumber);
+	disconnect_edges<<<numBlocks, numThreads>>>(cu_adj, cu_disconnect, tnumber);
 	cudaDeviceSynchronize();
-
+	auto te_label =std::chrono::high_resolution_clock::now();	
 
 	//cudaMemcpy(adj, cu_adj,3*tnumber*sizeof(int), cudaMemcpyDeviceToHost);
 	//for (i = 0; i < tnumber; i++)
@@ -199,10 +203,13 @@ int main(int argc, char* argv[]){
 	//for (i = 0; i < num_region; i++)
 	//	std::cout<<seed[i]<<" ";
 	//std::cout<<"\nregiones = "<<num_region<<std::endl;
-
-	generate_mesh<<<tnumber, 1>>>(cu_triangles, cu_adj, cu_r, cu_seed, cu_mesh, tnumber, cu_i_mesh);
+	auto tb_travel = std::chrono::high_resolution_clock::now();
+	generate_mesh<<<numBlocks, numThreads>>>(cu_triangles, cu_adj, cu_r, cu_seed, cu_mesh, tnumber, cu_i_mesh);
+	cudaDeviceSynchronize();
+	auto te_travel = std::chrono::high_resolution_clock::now();
+	auto t2 = std::chrono::high_resolution_clock::now();
 	cudaMemcpy(&i_mesh, cu_i_mesh,sizeof(int), cudaMemcpyDeviceToHost);
-	std::cout<<"\ni_mesh = "<<i_mesh<<std::endl;
+//	std::cout<<"\ni_mesh = "<<i_mesh<<std::endl;
 
 	cudaMemcpy(mesh, cu_mesh,3*tnumber*sizeof(int), cudaMemcpyDeviceToHost);
 	cudaMemcpy(seed, cu_seed,tnumber*sizeof(int), cudaMemcpyDeviceToHost);
@@ -215,17 +222,25 @@ int main(int argc, char* argv[]){
 	}
 	
 
-	i = 0;
-	while(i < i_mesh){
-		int length_poly = mesh[i];
-		i++;
-		std::cout<<length_poly<<": ";
-		for(j=0; j < length_poly;j++){
-			std::cout<<mesh[i] <<" ";
-			i++;
-		}
-		std::cout<<"\n";
-	}
+//	i = 0;
+//	while(i < i_mesh){
+//		int length_poly = mesh[i];
+//		i++;
+//		std::cout<<length_poly<<": ";
+//		for(j=0; j < length_poly;j++){
+//			std::cout<<mesh[i] <<" ";
+//			i++;
+//		}
+//		std::cout<<"\n";
+//	}
+
+	std::cout << std::setprecision(3) << std::fixed;
+    std::cout <<"pnumber tnumber num_reg tlabel talgorithm ttravel"<<std::endl;
+	std::cout<<pnumber<<" "<<tnumber<<" "<<num_region;
+	std::cout<<" "<<std::chrono::duration_cast<std::chrono::milliseconds>(te_label - tb_label).count();
+	std::cout<<" "<<std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1 ).count();
+	std::cout<<" "<<std::chrono::duration_cast<std::chrono::milliseconds>(te_travel - tb_travel ).count();
+
 
 	free(r);
 	free(triangles);
