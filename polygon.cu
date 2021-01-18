@@ -358,7 +358,7 @@ __global__ void generate_mesh(int *cu_triangles, int *cu_adj, double *cu_r, int 
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     int i_mesh;
     if(i < tnumber && cu_seed[i]){
-        int poly[20]; // CAMBIAR POR SHARE MEMORY
+        int poly[100]; // CAMBIAR POR SHARE MEMORY
         
         int length_poly = generate_polygon(poly, cu_triangles, cu_adj, cu_r, i);
         __syncthreads(); 

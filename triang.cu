@@ -340,8 +340,10 @@ __global__ void get_seeds(int *cu_max, int *cu_triangles, int *cu_adj, int *cu_s
 }
 
 
-__global__ void test_kernel(int *cu_seed, int tnumber){
+__global__ void initialize_memory(int *cu_seed, int* cu_disconnect, int tnumber){
     int i = blockDim.x * blockIdx.x + threadIdx.x;
-    if(i < tnumber)
-        cu_seed[i] = FALSE;  
+    if(i < tnumber){
+       cu_seed[i] = FALSE;  
+       cu_disconnect[i] = FALSE;
+    }
 }

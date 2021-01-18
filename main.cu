@@ -7,7 +7,7 @@
 #include <chrono>
 #include <iomanip>
 #include <cstdlib>
-
+#include <algorithm>    // std::min
 
 
 
@@ -137,12 +137,7 @@ int main(int argc, char* argv[]){
     }
 	delete Tr;
 
-	for(i = 0; i <tnumber; i++){
-		seed[i] = FALSE;
-		disconnect[3*i+0] = FALSE;
-		disconnect[3*i+1] = FALSE;
-		disconnect[3*i+2] = FALSE;
-	}
+
 		
 
     // Transfer arrays to device.
@@ -160,17 +155,15 @@ int main(int argc, char* argv[]){
 	cudaMalloc((void**) &cu_i_mesh, sizeof(int));
 	cudaMemcpy(cu_i_mesh, &i_mesh, 1*sizeof(int), cudaMemcpyHostToDevice);
 	
+	//https://stackoverflow.com/questions/47822784/calculating-grid-and-block-dimensions-of-a-kernel
+	int numThreads = 512;  // max register per block is 65536, 65536/512
+	int numBlocks  = (int)tnumber/numThreads;
+
 	
-	//Algoritmo de testeo para ver si visitan todos los triangulos
-	test_kernel<<<tnumber, 1>>>(cu_seed, tnumber);
-	cudaMemcpy(seed, cu_seed, tnumber*sizeof(int), cudaMemcpyDeviceToHost);
+	//Inicializar seeds y disconnect
+	initialize_memory<<<tnumber, 1>>>(cu_seed, cu_disconnect, tnumber);
 	cudaDeviceSynchronize();
-	for (i = 0; i < tnumber; i++){
-		if(seed[i] == TRUE)
-			return 0;
-	}
-	
-	
+
 	//Label phase
 	//Etiquetar el más largo;
 	label_longest_edges<<<tnumber, 1>>>(cu_max, cu_r, cu_triangles, tnumber);
@@ -220,11 +213,7 @@ int main(int argc, char* argv[]){
 			num_region++;
 		}
 	}
-	//std::cout<<"mesh[i] = ";
-	//for (i = 0; i < num_region; i++)
-	//	std::cout<<mesh[i]<<" ";
-	//std::cout<<"\n";
-	//return 0;
+	
 
 	i = 0;
 	while(i < i_mesh){
@@ -244,7 +233,15 @@ int main(int argc, char* argv[]){
 	free(seed );
 	free(mesh);
 	free(max);
-    
+	
+	cudaFree(cu_r);
+	cudaFree(cu_triangles);
+	cudaFree(cu_adj);
+	cudaFree(cu_seed);
+	cudaFree(cu_mesh);
+	cudaFree(cu_max);
+	cudaFree(cu_i_mesh);
+	cudaFree(cu_disconnect);
 	return EXIT_SUCCESS;
 }
     
