@@ -4,7 +4,7 @@ project(cmake_cuda LANGUAGES CUDA)
 
 
 add_subdirectory(detri2)
-add_executable(DelaunayPolyGenerator main.cu triang.cu polygon.cu)
+add_executable(DelaunayPolyGenerator main.cu triang.cu polygon.cu io.cu)
 
 set_target_properties(DelaunayPolyGenerator PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 target_link_libraries(DelaunayPolyGenerator detri2)

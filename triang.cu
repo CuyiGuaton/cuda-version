@@ -307,20 +307,9 @@ __global__ void disconnect_edges(int *cu_adj, int* cu_disconnect, int tnumber){
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     if(i < tnumber)
     {
-        if(cu_disconnect[3*i + 0] == TRUE)
-        {
-            cu_adj[3*i + 0] = NO_ADJ;
-        }
-        
-        if(cu_disconnect[3*i + 1] == TRUE)
-        {
-            cu_adj[3*i + 1] = NO_ADJ;
-        }
-        
-        if(cu_disconnect[3*i + 2] == TRUE)
-        {
-            cu_adj[3*i + 2] = NO_ADJ;
-        }
+        cu_adj[3*i + 0] = (cu_disconnect[3*i + 0] == TRUE) ? NO_ADJ : cu_adj[3*i + 0];
+        cu_adj[3*i + 1] = (cu_disconnect[3*i + 1] == TRUE) ? NO_ADJ : cu_adj[3*i + 1];
+        cu_adj[3*i + 2] = (cu_disconnect[3*i + 2] == TRUE) ? NO_ADJ : cu_adj[3*i + 2];
     }        
 }
 

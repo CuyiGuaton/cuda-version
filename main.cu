@@ -16,6 +16,7 @@
 
 
 //cuda
+#include "io.cuh"
 #include "triangle.cuh"
 #include "polygon.cuh"
 
@@ -156,7 +157,7 @@ int main(int argc, char* argv[]){
 	cudaMemcpy(cu_i_mesh, &i_mesh, 1*sizeof(int), cudaMemcpyHostToDevice);
 	
 	//https://stackoverflow.com/questions/47822784/calculating-grid-and-block-dimensions-of-a-kernel
-	int numThreads = 512;  // max register per block is 65536, 65536/512
+	int numThreads = 128;  // max register per block is 65536, 65536/512
 	//int numBlocks  = (int)tnumber/numThreads;
 	int numBlocks  = (tnumber + (numThreads-1))/numThreads;
 
@@ -186,11 +187,12 @@ int main(int argc, char* argv[]){
 	cudaDeviceSynchronize();
 	auto te_label =std::chrono::high_resolution_clock::now();	
 
+
+	//Se ordenan las semillas
 	//cudaMemcpy(adj, cu_adj,3*tnumber*sizeof(int), cudaMemcpyDeviceToHost);
 	//for (i = 0; i < tnumber; i++)
 	//	std::cout<<adj[3*i+0]<<" "<<adj[3*i+1]<<" "<<adj[3*i+2]<<"\n";
 
-	//Se ordenan las semillas
 	//cudaMemcpy(seed, cu_seed,tnumber*sizeof(int), cudaMemcpyDeviceToHost);
 	//int num_region = 0;
 	//for (i = 0; i < tnumber; i++)
@@ -203,6 +205,8 @@ int main(int argc, char* argv[]){
 	//for (i = 0; i < num_region; i++)
 	//	std::cout<<seed[i]<<" ";
 	//std::cout<<"\nregiones = "<<num_region<<std::endl;
+
+
 	auto tb_travel = std::chrono::high_resolution_clock::now();
 	generate_mesh<<<numBlocks, numThreads>>>(cu_triangles, cu_adj, cu_r, cu_seed, cu_mesh, tnumber, cu_i_mesh);
 	cudaDeviceSynchronize();
@@ -213,6 +217,7 @@ int main(int argc, char* argv[]){
 
 	cudaMemcpy(mesh, cu_mesh,3*tnumber*sizeof(int), cudaMemcpyDeviceToHost);
 	cudaMemcpy(seed, cu_seed,tnumber*sizeof(int), cudaMemcpyDeviceToHost);
+	
 	int num_region = 0;
 	for (i = 0; i < tnumber; i++)
 	{	
@@ -221,7 +226,7 @@ int main(int argc, char* argv[]){
 		}
 	}
 	
-
+	write_geomview(r, triangles, pnumber, tnumber, i_mesh, mesh, seed, num_region, 0);
 //	i = 0;
 //	while(i < i_mesh){
 //		int length_poly = mesh[i];
